@@ -1,69 +1,120 @@
-Certainly! Here's an example `deployment.yaml` file that defines three init containers to copy files into the `/tmp/agent` folder, and then a normal container that has access to the same folder as a common volume mount:
+To create a Spring Boot Cloud Gateway sample app, containerize it using Docker, and configure it to read properties from external variables for rate limiting, routing, and destination route, follow these steps:
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: init-containers-demo
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: init-containers-demo
-  template:
-    metadata:
-      labels:
-        app: init-containers-demo
-    spec:
-      initContainers:
-        - name: init-container-1
-          image: busybox
-          command:
-            [
-              "sh",
-              "-c",
-              "echo 'This is init container 1' > /tmp/agent/file1.txt",
-            ]
-          volumeMounts:
-            - name: agent-volume
-              mountPath: /tmp/agent
-        - name: init-container-2
-          image: busybox
-          command:
-            [
-              "sh",
-              "-c",
-              "echo 'This is init container 2' > /tmp/agent/file2.txt",
-            ]
-          volumeMounts:
-            - name: agent-volume
-              mountPath: /tmp/agent
-        - name: init-container-3
-          image: busybox
-          command:
-            [
-              "sh",
-              "-c",
-              "echo 'This is init container 3' > /tmp/agent/file3.txt",
-            ]
-          volumeMounts:
-            - name: agent-volume
-              mountPath: /tmp/agent
-      containers:
-        - name: main-container
-          image: your-main-container-image
-          volumeMounts:
-            - name: agent-volume
-              mountPath: /tmp/agent
-      volumes:
-        - name: agent-volume
-          emptyDir: {}
+1. Create a Spring Boot Cloud Gateway Sample App:
+
+Create a simple Spring Boot Cloud Gateway application with a custom configuration class to handle external properties. You can use the following code as a starting point:
+
+```java
+// GatewayProperties.java
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+@Component
+@ConfigurationProperties(prefix = "gateway")
+public class GatewayProperties {
+    private int rateLimit;
+    private String defaultRoute;
+
+    // Getter and setter methods for rateLimit and defaultRoute
+
+    // You can add more properties as needed
+}
 ```
 
-In this `deployment.yaml` file:
+2. Configure `application.yml` to use these properties:
 
-- Three init containers (`init-container-1`, `init-container-2`, and `init-container-3`) are defined. Each of them uses the BusyBox image to run a shell command that creates a file in the `/tmp/agent` directory. They all share a common volume mount named `agent-volume`.
+```yaml
+# application.yml
+server:
+  port: 8080
 
-- The main container (`main-container`) is your normal application container, and it also mounts the `agent-volume` volume at `/tmp/agent`. This allows the main container to access the files created by the init containers.
+spring:
+  application:
+    name: gateway-service
 
-Make sure to replace `your-main-container-image` with the actual image you want to use for your main application container.
+gateway:
+  rateLimit: 100
+  defaultRoute: http://localhost:8080
+```
+
+3. Create your routing configuration in the application using `RouteLocator`, `RouteDefinition`, or any other approach you prefer.
+
+4. Create a Dockerfile to containerize the application:
+
+```Dockerfile
+# Use an official OpenJDK runtime as a parent image
+FROM openjdk:11-jre-slim
+
+# Set the working directory to /app
+WORKDIR /app
+
+# Copy the built JAR file into the container
+COPY target/gateway-service.jar app.jar
+
+# Expose the port that the gateway service will run on
+EXPOSE 8080
+
+# Start the Spring Boot application
+CMD ["java", "-jar", "app.jar"]
+```
+
+5. Build the Docker image using the following command (replace `your-image-name` and `your-image-tag` with your desired image name and tag):
+
+```bash
+docker build -t your-image-name:your-image-tag .
+```
+
+6. Now, create a script to configure the Cloud Gateway properties at runtime. You can use a shell script for this purpose (e.g., `configure-gateway.sh`):
+
+```bash
+#!/bin/bash
+
+# Get the environment variables passed to the container
+RATE_LIMIT=${GATEWAY_RATE_LIMIT:-100}
+DEFAULT_ROUTE=${GATEWAY_DEFAULT_ROUTE:-http://localhost:8080}
+
+# Replace the properties in the external configuration file
+sed -i "s/gateway.rateLimit=$/gateway.rateLimit=$RATE_LIMIT/" /config/application.yml
+sed -i "s|gateway.defaultRoute=$|gateway.defaultRoute=$DEFAULT_ROUTE|" /config/application.yml
+
+# Start the Spring Boot application
+java -jar /app/app.jar
+```
+
+Make sure to grant execute permissions to the script:
+
+```bash
+chmod +x configure-gateway.sh
+```
+
+7. Update your Dockerfile to copy the `configure-gateway.sh` script and set the entry point:
+
+```Dockerfile
+# ...
+
+# Copy the configuration script into the container
+COPY configure-gateway.sh /configure-gateway.sh
+
+# Make the script executable
+RUN chmod +x /configure-gateway.sh
+
+# Set the entry point
+ENTRYPOINT ["/configure-gateway.sh"]
+```
+
+8. Build the Docker image again with the updated Dockerfile:
+
+```bash
+docker build -t your-image-name:your-image-tag .
+```
+
+9. Run the container, passing the desired environment variables:
+
+```bash
+docker run -d -p 8080:8080 \
+  -e GATEWAY_RATE_LIMIT=500 \
+  -e GATEWAY_DEFAULT_ROUTE=http://example.com \
+  your-image-name:your-image-tag
+```
+
+Now, your Spring Boot Cloud Gateway application will read the configuration from external environment variables at runtime, allowing you to set properties like rate limiting, routing, and destination routes as needed.
