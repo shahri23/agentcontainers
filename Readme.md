@@ -118,3 +118,131 @@ docker run -d -p 8080:8080 \
 ```
 
 Now, your Spring Boot Cloud Gateway application will read the configuration from external environment variables at runtime, allowing you to set properties like rate limiting, routing, and destination routes as needed.
+
+\*\*1
+You can parameterize the values in the `application.properties` file by referencing environment variables set in your Bash environment. Here's the same configuration as before, but with environment variable references:
+
+```properties
+# Application Port
+server.port=${SERVER_PORT}
+
+# Spring Cloud Gateway Routes
+spring.cloud.gateway.routes[0].id=example-route
+spring.cloud.gateway.routes[0].uri=${EXAMPLE_URI}
+spring.cloud.gateway.routes[0].predicates[0]=Path=/example/**
+spring.cloud.gateway.routes[0].predicates[1]=Host=${EXAMPLE_HOST}
+spring.cloud.gateway.routes[0].filters[0]=RewritePath=/example/(?<segment>.*), /$\{segment}
+spring.cloud.gateway.routes[0].filters[1]=AddResponseHeader=X-Response-Header, Gateway Header
+spring.cloud.gateway.routes[0].filters[2]=AddRequestHeader=X-Request-Header, Gateway Request Header
+
+# Global Filter Configuration
+spring.cloud.gateway.globalfilters[0]=${GLOBAL_FILTER}
+
+# SSL/TLS Configuration
+server.ssl.key-store=${SSL_KEYSTORE}
+server.ssl.key-store-password=${SSL_KEYSTORE_PASSWORD}
+server.ssl.keyAlias=${SSL_KEY_ALIAS}
+server.ssl.key-password=${SSL_KEY_PASSWORD}
+server.ssl.enabled=${SSL_ENABLED}
+
+# HTTPS Headers
+server.ssl.enabled=true
+security.require-ssl=true
+security.headers.hsts=Max-Age=31536000 ; includeSubDomains
+security.headers.hsts.enabled=true
+security.headers.hsts.includeSubDomains=true
+security.headers.frame=true
+
+# X-Forwarded Headers
+server.use-forward-headers=true
+spring.cloud.gateway.forwarded.enabled=true
+
+# CORS Configuration
+spring.webflux.hiddenmethod.filter.enabled=false
+spring.webflux.gzip.enabled=true
+spring.webflux.gzip.minResponseSize=10240
+spring.webflux.gzip.mimeTypes=text/plain, text/html, text/xml, text/css, application/javascript
+spring.cloud.gateway.default-filters[0]=TokenRelay
+spring.cloud.gateway.routes[1].id=cors-route
+spring.cloud.gateway.routes[1].uri=${CORS_URI}
+spring.cloud.gateway.routes[1].predicates[0]=Path=/cors/**
+spring.cloud.gateway.routes[1].filters[0]=Cors=/
+```
+
+In this updated configuration:
+
+- `${SERVER_PORT}`, `${EXAMPLE_URI}`, `${EXAMPLE_HOST}`, `${GLOBAL_FILTER}`, `${SSL_KEYSTORE}`, `${SSL_KEYSTORE_PASSWORD}`, `${SSL_KEY_ALIAS}`, `${SSL_KEY_PASSWORD}`, and `${SSL_ENABLED}` are placeholders that reference environment variables.
+- You should set these environment variables in your Bash environment before running your Spring Boot application.
+
+For example, you can set the `EXAMPLE_URI` environment variable like this:
+
+```bash
+export EXAMPLE_URI=https://example.com
+```
+
+And similarly, set the other environment variables accordingly.
+
+When you run your Spring Boot application, it will use the values of the referenced environment variables for configuration. This allows you to externalize and parameterize your configuration using environment variables.
+
+\*\*2- Certainly! Here's an updated Bash script that generates the `application.properties` file with sections for routes, predicates, filters, TLS/SSL settings, HTTPS headers, X-Forwarded headers, and CORS configuration based on user-provided environment variables:
+
+```bash
+#!/bin/bash
+
+# Function to append a section to the properties file
+append_section() {
+  echo "" >> application.properties
+  echo "$1" >> application.properties
+}
+
+# Generate the minimal configuration
+cat <<EOL > application.properties
+# Application Port
+server.port=8080
+
+# Spring Cloud Gateway Routes
+spring.cloud.gateway.routes[0].id=default-route
+spring.cloud.gateway.routes[0].uri=https://default-backend.com
+spring.cloud.gateway.routes[0].predicates[0]=Path=/**
+EOL
+
+# Check if ENABLE_CORS is true and append CORS section
+if [[ "$ENABLE_CORS" == "true" ]]; then
+  append_section "# CORS Configuration"
+  append_section "spring.cloud.gateway.routes[1].id=cors-route"
+  append_section "spring.cloud.gateway.routes[1].uri=\${CORS_URI}"
+  append_section "spring.cloud.gateway.routes[1].predicates[0]=Path=/cors/**"
+  append_section "spring.cloud.gateway.routes[1].filters[0]=Cors=/"
+fi
+
+# Check if ENABLE_TLS is true and append TLS section
+if [[ "$ENABLE_TLS" == "true" ]]; then
+  append_section "# TLS/SSL Configuration"
+  append_section "server.ssl.key-store=\${SSL_KEYSTORE}"
+  append_section "server.ssl.key-store-password=\${SSL_KEYSTORE_PASSWORD}"
+  append_section "server.ssl.keyAlias=\${SSL_KEY_ALIAS}"
+  append_section "server.ssl.key-password=\${SSL_KEY_PASSWORD}"
+  append_section "server.ssl.enabled=true"
+
+  append_section "# HTTPS Headers"
+  append_section "security.require-ssl=true"
+  append_section "security.headers.hsts=Max-Age=31536000 ; includeSubDomains"
+  append_section "security.headers.hsts.enabled=true"
+  append_section "security.headers.hsts.includeSubDomains=true"
+  append_section "security.headers.frame=true"
+
+  append_section "# X-Forwarded Headers"
+  append_section "server.use-forward-headers=true"
+  append_section "spring.cloud.gateway.forwarded.enabled=true"
+fi
+
+# Add custom routes, filters, and predicates here based on your requirements
+
+echo "Generated application.properties file with optional sections."
+
+# You can then trigger the redeployment of the Gateway pod here.
+# For example, if you're using `oc` to manage OpenShift resources:
+# oc rollout latest dc/gateway-deployment-config
+```
+
+This script generates the `application.properties` file with sections for CORS configuration, TLS/SSL configuration, HTTPS headers, and X-Forwarded headers based on the `ENABLE_CORS` and `ENABLE_TLS` environment variables. You can further customize the script to add custom routes, filters, and predicates as needed.
