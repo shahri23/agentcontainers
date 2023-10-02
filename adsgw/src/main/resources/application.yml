@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: adsgw
+
+cloud:
+  gateway:
+    routes:
+      - id: $BACKEND$K
+        uri: $BACKENDROUTE$K
+        predicates:
+          - Path=/books/**
+        filters:
