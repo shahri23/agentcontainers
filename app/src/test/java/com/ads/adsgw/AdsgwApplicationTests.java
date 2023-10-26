@@ -1,10 +1,10 @@
-package com.ads.apigw;
+package com.ads.adsgw;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class ApigwApplicationTests {
+class AdsgwApplicationTests {
 
 	@Test
 	void contextLoads() {

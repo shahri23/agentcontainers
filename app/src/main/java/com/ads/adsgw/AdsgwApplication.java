@@ -1,13 +1,13 @@
-package com.ads.apigw;
+package com.ads.adsgw;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class ApigwApplication {
+public class AdsgwApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(ApigwApplication.class, args);
+		SpringApplication.run(AdsgwApplication.class, args);
 	}
 
 }
