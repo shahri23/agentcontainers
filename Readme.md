@@ -246,3 +246,100 @@ echo "Generated application.properties file with optional sections."
 ```
 
 This script generates the `application.properties` file with sections for CORS configuration, TLS/SSL configuration, HTTPS headers, and X-Forwarded headers based on the `ENABLE_CORS` and `ENABLE_TLS` environment variables. You can further customize the script to add custom routes, filters, and predicates as needed.
+
+If you don't know the specific pod name beforehand and want to restart a pod for an application managed by a deployment, you can use the following approach:
+
+1. Identify the deployment's name.
+2. Use OpenShift's Rolling Restart Strategy for the deployment.
+
+Here's an updated script to achieve this:
+
+```bash
+#!/bin/bash
+
+# Define OpenShift API server URL and credentials
+OPENSHIFT_URL="https://your-openshift-cluster"
+OPENSHIFT_TOKEN="your-openshift-token"
+NAMESPACE="your-namespace"
+CONFIG_MAP_NAME="your-configmap-name"
+DEPLOYMENT_NAME="your-deployment-name"
+
+# Define the YAML configuration
+YAML_FILE="spring_cloud_gateway_properties.yaml"
+
+# Create the YAML content
+cat > "$YAML_FILE" <<EOL
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: route1
+          uri: http://example.com
+          predicates:
+            - Path=/foo/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: '#{@keyResolver}'
+                redis-rate-limiter.replenishRate: 1
+                redis-rate-limiter.burstCapacity: 2
+                redis-rate-limiter.requestedTokens: 1
+            - name: RewritePath
+              args:
+                regexp: /foo/(?<segment>.*)
+                replacement: /\$\{segment}
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            key-resolver: '#{@keyResolver}'
+            redis-rate-limiter.replenishRate: 1
+            redis-rate-limiter.burstCapacity: 2
+            redis-rate-limiter.requestedTokens: 1
+EOL
+
+echo "Generated $YAML_FILE with Spring Cloud Gateway configuration"
+
+# Check if the YAML file exists
+if [ -f "$YAML_FILE" ]; then
+  echo "Creating ConfigMap $CONFIG_MAP_NAME in namespace $NAMESPACE"
+
+  # Encode the YAML file as base64
+  ENCODED_YAML=$(cat "$YAML_FILE" | base64)
+
+  # Define the ConfigMap JSON
+  JSON_DATA='{
+    "kind": "ConfigMap",
+    "apiVersion": "v1",
+    "metadata": {
+      "name": "'"$CONFIG_MAP_NAME"'"
+    },
+    "data": {
+      "spring_cloud_gateway_properties.yaml": "'"$ENCODED_YAML"'"
+    }
+  }'
+
+  # Create or update the ConfigMap using the OpenShift API
+  curl -X PUT "$OPENSHIFT_URL/api/v1/namespaces/$NAMESPACE/configmaps/$CONFIG_MAP_NAME" \
+    -H "Authorization: Bearer $OPENSHIFT_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$JSON_DATA"
+
+  # Identify the deployment name
+  DEPLOYMENT_NAME=$(oc get deployments -n "$NAMESPACE" --no-headers | awk '{print $1}')
+
+  if [ -n "$DEPLOYMENT_NAME" ]; then
+    # Perform a rolling restart of the identified deployment
+    echo "Performing a rolling restart of deployment $DEPLOYMENT_NAME in namespace $NAMESPACE"
+    curl -X POST "$OPENSHIFT_URL/apis/apps/v1/namespaces/$NAMESPACE/deployments/$DEPLOYMENT_NAME/rollback" \
+      -H "Authorization: Bearer $OPENSHIFT_TOKEN" \
+      -H "Content-Type: application/json" \
+      --data '{"kind":"DeploymentRollback","name":"'"$DEPLOYMENT_NAME"'"}'
+  else
+    echo "Error: Deployment not found in namespace $NAMESPACE."
+  fi
+else
+  echo "Error: YAML file not found."
+fi
+```
+
+In this script, we identify the deployment name in the specified namespace, and then we perform a rolling restart of the deployment to ensure that the changes from the updated ConfigMap take effect. This approach is more flexible as it doesn't rely on a specific pod name, and it works with deployments. Make sure to replace the placeholders with your actual OpenShift cluster details and configuration.
