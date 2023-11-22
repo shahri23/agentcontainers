@@ -1,5 +1,19 @@
+If you want to use a unique value that gets translated or processed before being inserted into the HTML <head> section through IndexHeadInsert, you might need to first set an environment variable with the base64 encoding of UNIQUE_ID in your server configuration and then refer to that variable in the IndexHeadInsert directive.
+
+For instance, in your Apache configuration:
 
 ```conf
+
+SetEnv BASE64_UNIQUE_ID %{base64:%{UNIQUE_ID}}
+
+
+LoadModule autoindex_module modules/mod_autoindex.so
+<IfModule mod_autoindex.c>
+    IndexOptions +IndexHeadInsert
+    IndexHeadInsert "<meta name='CSP_NONCE' content='${BASE64_UNIQUE_ID}'>"
+</IfModule>
+
+
 
 <IfModule mod_headers.c>
     # Enable the mod_headers module
@@ -19,7 +33,7 @@
 LoadModule unique_id_module modules/mod_unique_id.so
 Header add Content-Security-Policy "default-src 'self' 'localhost' img-src https://\*; 'nonce-%{UNIQUE_ID}e'"
 
-````
+```
 
 Then curl it curl -sD - localhost -o /dev/null
 
@@ -48,4 +62,4 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
-````
+```
