@@ -1,3 +1,21 @@
+
+```conf
+
+<IfModule mod_headers.c>
+    # Enable the mod_headers module
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'nonce-%{UNIQUE_ID}%' 'unsafe-inline'; style-src 'nonce-%{UNIQUE_ID}%' 'unsafe-inline';"
+
+    # Use the UNIQUE_ID environment variable to generate dynamic nonces
+    SetEnvIf Request_URI "^" UNIQUE_ID=$RANDOM
+
+    # Insert nonces into inline scripts and styles
+    <FilesMatch "\.html$">
+        IndexHeadInsert "<script nonce='%{UNIQUE_ID}%'></script>"
+        IndexHeadInsert "<style nonce='%{UNIQUE_ID}%'></style>"
+    </FilesMatch>
+</IfModule>
+
+
 LoadModule unique_id_module modules/mod_unique_id.so
 Header add Content-Security-Policy "default-src 'self' 'localhost' img-src https://\*; 'nonce-%{UNIQUE_ID}e'"
 
