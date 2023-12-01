@@ -128,3 +128,66 @@ To enable PKCE, you'd typically set the pkce: true property in your OAuth 2.0 cl
 Ensure that your PingFederate server supports PKCE and that the configuration provided (such as access-token-uri, user-authorization-uri, scope, etc.) aligns with the requirements of your PingFederate server for OAuth 2.0 with PKCE flow.
 
 The above configuration is a basic example and should be adjusted according to the specific implementation and requirements of your Spring Cloud Gateway application and PingFederate server setup. Always refer to the PingFederate documentation and OAuth 2.0/PKCE specifications for accurate and up-to-date configuration details.
+
+To configure Spring Cloud Gateway to handle OAuth2 authentication and authorization using PingFederate as the OAuth2 provider, you'll need to set up the necessary configurations in the application.yaml file. Below is an example configuration to demonstrate how you might set this up:
+
+```yaml
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: backend-service-route
+          uri: http://your-backend-service-url
+          predicates:
+            - Path=/backend/**
+          filters:
+            - RewritePath=/backend/(?<segment>.*), /$\{segment}
+            - name: OAuth2
+              args:
+                oauth2Resource:
+                  userInfoUri: https://your-pingfederate-domain/oauth/userinfo
+                  clientId: your-client-id
+                  clientSecret: your-client-secret
+                  scope: openid # Adjust based on your required scope
+                  tokenRelayUri: true
+```
+
+Explanation of the configuration:
+n the context of an OAuth2 flow involving a client app, a gateway, and a PingFederate server, here's a breakdown of how the process typically works and how the configurations facilitate this interaction:
+
+Client App:
+
+The client app initiates a request to the Spring Cloud Gateway to access the backend service.
+This request usually includes an access token in the authorization header or as a query parameter (depending on the OAuth2 flow being used).
+Token in Request:
+
+When the client app sends a request to the gateway, it includes the access token in the request header or query parameters. The token serves as proof of authentication and authorization to access protected resources.
+Gateway Configuration:
+
+The Spring Cloud Gateway is configured to intercept incoming requests to the specified routes (in this case, the backend service route).
+Within the Gateway's configuration, the OAuth2 filter is set up to handle the token validation and interaction with the PingFederate server.
+OAuth2 Filter Configuration:
+
+The OAuth2 filter in the configuration specifies the necessary parameters to interact with the PingFederate server for token validation.
+It includes:
+userInfoUri: Endpoint to PingFederate's userinfo service to validate the token.
+clientId: Identifier for the client app registered in PingFederate.
+clientSecret: Client secret associated with the client ID in PingFederate.
+scope: The requested scope for accessing the protected resource.
+tokenRelayUri: Whether to relay the validated token to the backend service.
+Token Validation:
+
+When the request reaches the Gateway, the OAuth2 filter intercepts it and extracts the access token.
+The Gateway then sends a request to the PingFederate server's userinfoUri to validate the token.
+PingFederate validates the token based on its rules, scopes, and other criteria configured for the client app.
+If the token is valid, PingFederate sends back the necessary user information or confirmation to the Gateway.
+Access to Backend Service:
+
+If the token is valid, the Gateway allows the request to pass through to the backend service as specified in the route configuration.
+Depending on the tokenRelayUri setting, the Gateway can forward the validated token to the backend service.
+Regarding your concerns about how the token is forwarded and the credentials required:
+
+The token itself is sent in the authorization header or as part of the request to the Gateway by the client app.
+The Gateway uses its configuration and the credentials (client ID and client secret) specified in the OAuth2 filter to communicate with the PingFederate server for token validation.
+The client app itself does not need to directly interact with the PingFederate server; it communicates only with the Gateway.
+It's important to secure the credentials used by the Gateway to communicate with the PingFederate server and ensure that the configurations align with the security practices recommended for your application environment.
