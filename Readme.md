@@ -1,3 +1,5 @@
+curl -X POST --data-binary @file_to_upload.txt http://your_apache_server/endpoint
+
 To create a Spring Boot Cloud Gateway sample app, containerize it using Docker, and configure it to read properties from external variables for rate limiting, routing, and destination route, follow these steps:
 
 1. Create a Spring Boot Cloud Gateway Sample App:
